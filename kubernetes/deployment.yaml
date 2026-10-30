@@ -18,6 +18,7 @@ spec:
     spec:
       containers:
       - image: cnpg-i-supercronic-sidecar:latest
+        imagePullPolicy: IfNotPresent
         name: cnpg-i-supercronic-sidecar
         ports:
         - containerPort: 9090

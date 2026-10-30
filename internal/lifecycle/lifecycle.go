@@ -129,10 +129,11 @@ func (impl Implementation) reconcilePod(
 	mutatedPod := pod.DeepCopy()
 
 	sidecar := &corev1.Container{
-		Name:    sidecarContainerName,
-		Image:   configuration.Image,
-		Command: []string{"supercronic", configuration.CrontabPath},
-		Env:     connectionEnv(cluster),
+		Name:            sidecarContainerName,
+		Image:           configuration.Image,
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Command:         []string{"supercronic", configuration.CrontabPath},
+		Env:             connectionEnv(cluster),
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      scriptsVolumeName,
