@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: supercronic-sidecar
+  name: supercronic-sidecar
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: supercronic-sidecar
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: supercronic-sidecar
+    spec:
+      containers:
+      - image: cnpg-i-supercronic-sidecar:latest
+        name: cnpg-i-supercronic-sidecar
+        ports:
+        - containerPort: 9090
+          protocol: TCP
+        args:
+        - plugin
+        - --server-cert=/server/tls.crt
+        - --server-key=/server/tls.key
+        - --client-cert=/client/tls.crt
+        - --server-address=:9090
+        volumeMounts:
+        - mountPath: /server
+          name: server
+        - mountPath: /client
+          name: client
+        resources: {}
+      volumes:
+      - name: server
+        secret:
+          secretName: supercronic-sidecar-server-tls
+      - name: client
+        secret:
+          secretName: supercronic-sidecar-client-tls

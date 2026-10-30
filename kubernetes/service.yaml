@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: supercronic-sidecar
+    cnpg.io/pluginName: supercronic-sidecar.tkdb.ai
+  annotations:
+    cnpg.io/pluginClientSecret: supercronic-sidecar-client-tls
+    cnpg.io/pluginServerSecret: supercronic-sidecar-server-tls
+    cnpg.io/pluginPort: "9090"
+  name: supercronic-sidecar
+spec:
+  ports:
+  - port: 9090
+    protocol: TCP
+    targetPort: 9090
+  selector:
+    app: supercronic-sidecar

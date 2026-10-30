@@ -1,0 +1,24 @@
+# Example registering this plugin on an EDB Postgres for Kubernetes Cluster.
+# Apply doc/examples/configmap-scripts.yaml first (same namespace as this
+# Cluster) - it holds the crontab and the scripts the crontab invokes.
+apiVersion: postgresql.k8s.enterprisedb.io/v1
+kind: Cluster
+metadata:
+  name: cluster-example
+spec:
+  instances: 3
+
+  plugins:
+  - name: supercronic-sidecar.tkdb.ai
+    parameters:
+      # Built from sidecar-image/Dockerfile in this repository, pushed to
+      # your own registry.
+      image: <your-registry>/supercronic-sidecar:latest
+      configMapName: cluster-example-supercronic-scripts
+
+  enableSuperuserAccess: true
+  superuserSecret:
+    name: cluster-example-superuser
+
+  storage:
+    size: 1Gi

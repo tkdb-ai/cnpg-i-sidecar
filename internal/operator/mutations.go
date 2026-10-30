@@ -1,0 +1,79 @@
+/*
+Copyright © contributors to CloudNativePG, established as
+CloudNativePG a Series of LF Projects, LLC.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+package operator
+
+import (
+	"context"
+
+	"github.com/cloudnative-pg/cnpg-i-machinery/pkg/pluginhelper/common"
+	"github.com/cloudnative-pg/cnpg-i-machinery/pkg/pluginhelper/decoder"
+	"github.com/cloudnative-pg/cnpg-i-machinery/pkg/pluginhelper/object"
+	"github.com/cloudnative-pg/cnpg-i/pkg/operator"
+
+	"github.com/tkdb-ai/cnpg-i-supercronic-sidecar/internal/config"
+	"github.com/tkdb-ai/cnpg-i-supercronic-sidecar/pkg/metadata"
+)
+
+// MutateCluster is called to mutate a cluster with the defaulting webhook.
+// This function is defaulting the "imagePullPolicy" plugin parameter
+func (Implementation) MutateCluster(
+	_ context.Context,
+	request *operator.OperatorMutateClusterRequest,
+) (*operator.OperatorMutateClusterResult, error) {
+	cluster, err := decoder.DecodeClusterLenient(request.GetDefinition())
+	if err != nil {
+		return nil, err
+	}
+
+	helper := common.NewPlugin(
+		*cluster,
+		metadata.PluginName,
+	)
+
+	config, valErrs := config.FromParameters(helper)
+	if len(valErrs) > 0 {
+		return nil, valErrs[0]
+	}
+
+	mutatedCluster := cluster.DeepCopy()
+	for i := range mutatedCluster.Spec.Plugins {
+		if mutatedCluster.Spec.Plugins[i].Name != metadata.PluginName {
+			continue
+		}
+
+		if mutatedCluster.Spec.Plugins[i].Parameters == nil {
+			mutatedCluster.Spec.Plugins[i].Parameters = make(map[string]string)
+		}
+
+		mutatedCluster.Spec.Plugins[i].Parameters, err = config.ToParameters()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	patch, err := object.CreatePatch(cluster, mutatedCluster)
+	if err != nil {
+		return nil, err
+	}
+
+	return &operator.OperatorMutateClusterResult{
+		JsonPatch: patch,
+	}, nil
+}

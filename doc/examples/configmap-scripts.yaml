@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-example-supercronic-scripts
+data:
+  crontab: |
+    # minute hour day month weekday command
+    */15 * * * * /etc/supercronic/example-vacuum-analyze.sh
+  example-vacuum-analyze.sh: |
+    #!/bin/sh
+    set -eu
+    psql -v ON_ERROR_STOP=1 -c "VACUUM (ANALYZE);"
