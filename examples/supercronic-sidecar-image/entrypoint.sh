@@ -22,4 +22,16 @@ for _ in $(seq 1 30); do
   sleep 2
 done
 
+# Optional user-supplied startup script: add a "startup.sh" key to
+# sidecarScripts.scripts (edb-database-cluster chart) / configMapName's
+# ConfigMap (plugin directly) - it runs once here, before supercronic
+# takes over, no image rebuild needed to add or change it. Hardcoded to
+# /etc/sidecar since that's this image's own CMD default for mountPath;
+# update this if you override the mountPath parameter from its default.
+STARTUP_SCRIPT=/etc/sidecar/startup.sh
+if [ -x "${STARTUP_SCRIPT}" ]; then
+  echo "running ${STARTUP_SCRIPT}"
+  "${STARTUP_SCRIPT}"
+fi
+
 exec supercronic "$@"
