@@ -39,6 +39,7 @@ import (
 const (
 	sidecarContainerName = "supercronic"
 	scriptsVolumeName    = "supercronic-scripts"
+	exportVolumeName     = "supercronic-export"
 )
 
 // Implementation is the implementation of the lifecycle handler
@@ -133,12 +134,16 @@ func (impl Implementation) reconcilePod(
 		Image:           configuration.Image,
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Command:         []string{"supercronic", configuration.CrontabPath},
-		Env:             connectionEnv(cluster),
+		Env:             connectionEnv(cluster, configuration.ExportPath),
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      scriptsVolumeName,
 				MountPath: configuration.MountPath,
 				ReadOnly:  true,
+			},
+			{
+				Name:      exportVolumeName,
+				MountPath: configuration.ExportPath,
 			},
 		},
 	}
@@ -153,6 +158,7 @@ func (impl Implementation) reconcilePod(
 	}
 
 	ensureScriptsVolume(&mutatedPod.Spec, configuration.ConfigMapName)
+	ensureExportVolume(&mutatedPod.Spec)
 
 	patch, err := object.CreatePatch(mutatedPod, pod)
 	if err != nil {
@@ -170,7 +176,7 @@ func (impl Implementation) reconcilePod(
 // instance, using the same credentials the Cluster itself is configured
 // with: the superuser if enabled (needed for most maintenance scripts),
 // otherwise the application user created at bootstrap time.
-func connectionEnv(cluster *apiv1.Cluster) []corev1.EnvVar {
+func connectionEnv(cluster *apiv1.Cluster, exportPath string) []corev1.EnvVar {
 	var secretName, userName string
 
 	switch {
@@ -188,6 +194,20 @@ func connectionEnv(cluster *apiv1.Cluster) []corev1.EnvVar {
 	env := []corev1.EnvVar{
 		{Name: "PGHOST", Value: "/controller/run"},
 		{Name: "PGPORT", Value: "5432"},
+		// For scripts that need to call the Kubernetes API against their
+		// own Pod (e.g. GET .../pods/$POD_NAME/log to pull Postgres's log
+		// output as a real, truncatable file - the pipes CNPG itself logs
+		// to cannot be read a second time or truncated). The ServiceAccount
+		// token needed to authenticate is already auto-mounted into every
+		// container in the Pod by Kubernetes, at
+		// /var/run/secrets/kubernetes.io/serviceaccount/token.
+		{Name: "POD_NAME", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"},
+		}},
+		{Name: "POD_NAMESPACE", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.namespace"},
+		}},
+		{Name: "EXPORT_PATH", Value: exportPath},
 	}
 
 	if userName != "" {
@@ -230,6 +250,25 @@ func ensureScriptsVolume(spec *corev1.PodSpec, configMapName string) {
 				LocalObjectReference: corev1.LocalObjectReference{Name: configMapName},
 				DefaultMode:          &executableMode,
 			},
+		},
+	})
+}
+
+// ensureExportVolume adds a plain writable emptyDir volume to the Pod spec
+// for scripts to stage files in (e.g. a pulled copy of the Postgres log,
+// ready for a downstream shipper to pick up and truncate), if it isn't
+// already present.
+func ensureExportVolume(spec *corev1.PodSpec) {
+	for _, v := range spec.Volumes {
+		if v.Name == exportVolumeName {
+			return
+		}
+	}
+
+	spec.Volumes = append(spec.Volumes, corev1.Volume{
+		Name: exportVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		},
 	})
 }

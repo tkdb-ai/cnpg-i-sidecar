@@ -30,9 +30,11 @@ const (
 	configMapNameParameter = "configMapName"
 	mountPathParameter     = "mountPath"
 	crontabPathParameter   = "crontabPath"
+	exportPathParameter    = "exportPath"
 
 	defaultMountPath   = "/etc/supercronic"
 	defaultCrontabPath = "/etc/supercronic/crontab"
+	defaultExportPath  = "/var/log/postgres-export"
 )
 
 // Configuration represents the plugin configuration parameters
@@ -54,6 +56,14 @@ type Configuration struct {
 	// CrontabPath is the path (inside MountPath) to the crontab file
 	// passed to supercronic.
 	CrontabPath string
+
+	// ExportPath is a writable directory mounted into the sidecar (an
+	// emptyDir, not shared with the postgres container) for scripts that
+	// need to stage files - e.g. pulling the instance's logs via the
+	// Kubernetes API (GET /api/v1/.../pods/<name>/log) and writing them out
+	// as a real, truncatable file for a downstream log shipper, since the
+	// pipes CNPG itself logs to cannot be read a second time or truncated.
+	ExportPath string
 }
 
 // FromParameters builds a plugin configuration from the configuration parameters
@@ -67,6 +77,7 @@ func FromParameters(
 		ConfigMapName: helper.Parameters[configMapNameParameter],
 		MountPath:     helper.Parameters[mountPathParameter],
 		CrontabPath:   helper.Parameters[crontabPathParameter],
+		ExportPath:    helper.Parameters[exportPathParameter],
 	}
 
 	if configuration.ConfigMapName == "" {
@@ -114,6 +125,7 @@ func (config *Configuration) ToParameters() (map[string]string, error) {
 		configMapNameParameter: config.ConfigMapName,
 		mountPathParameter:     config.MountPath,
 		crontabPathParameter:   config.CrontabPath,
+		exportPathParameter:    config.ExportPath,
 	}, nil
 }
 
@@ -124,5 +136,8 @@ func (config *Configuration) applyDefaults() {
 	}
 	if config.CrontabPath == "" {
 		config.CrontabPath = defaultCrontabPath
+	}
+	if config.ExportPath == "" {
+		config.ExportPath = defaultExportPath
 	}
 }

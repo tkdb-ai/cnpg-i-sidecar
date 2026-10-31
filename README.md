@@ -32,6 +32,14 @@ On every Pod create/reconcile, the plugin's `LifecycleHook`:
    from the Cluster's superuser secret (if `enableSuperuserAccess: true`)
    or its bootstrap app-user secret otherwise - so scripts can just run
    `psql ...` with no connection flags.
+5. Mounts a plain writable `emptyDir` at `exportPath` (default
+   `/var/log/postgres-export`), and sets `POD_NAME`/`POD_NAMESPACE` env
+   vars - for scripts that need to stage files, e.g. pulling Postgres's log
+   via the Kubernetes API (`GET .../pods/$POD_NAME/log?container=postgres`)
+   and writing it out as a real, truncatable file for a log shipper. This
+   is necessary because CNPG's own log output lives in named pipes (see
+   "Why not just read CNPG's log pipes" below) - it can't be read a second
+   time or truncated directly.
 
 See [`internal/lifecycle/lifecycle.go`](internal/lifecycle/lifecycle.go) for
 the implementation, and [`doc/examples/`](doc/examples/) for a full working
@@ -50,6 +58,18 @@ Don't confuse these:
   gets injected into each Postgres instance Pod. Contains `supercronic` and
   `psql`. This is what the `image` plugin parameter points to.
 
+## Why not just read CNPG's log pipes directly
+
+`/controller/log/{postgres,postgres.csv,postgres.json,edb_audit.csv}` are
+named pipes, not regular files - CNPG's own instance manager is the one
+reader multiplexing them into its stdout (what `kubectl logs` shows). A
+second reader in the sidecar would race the instance manager for the same
+bytes, and there's no historical content to `cat` or `truncate()` on a
+FIFO anyway. If you need Postgres's log as a real file (e.g. to truncate
+and hand off to a log shipper), pull it via the Kubernetes API instead -
+see `exportPath` below, and this chart's `logExport.enabled` value, which
+grants the RBAC (`get` on `pods/log`) a script needs to do that.
+
 ## Plugin parameters
 
 | Parameter | Required | Default | Description |
@@ -58,6 +78,7 @@ Don't confuse these:
 | `configMapName` | yes | - | ConfigMap (same namespace as the Cluster) with the crontab and scripts. |
 | `mountPath` | no | `/etc/supercronic` | Where the ConfigMap is mounted in the sidecar. |
 | `crontabPath` | no | `/etc/supercronic/crontab` | Path to the crontab file passed to supercronic. |
+| `exportPath` | no | `/var/log/postgres-export` | Writable `emptyDir` mount for scripts to stage files in (e.g. a pulled copy of the Postgres log). |
 
 ## Deploying
 
