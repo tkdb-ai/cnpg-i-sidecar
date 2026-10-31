@@ -8,4 +8,4 @@ resources:
 - server-certificate.yaml
 - service.yaml
 images:
-- name: cnpg-i-supercronic-sidecar
+- name: cnpg-i-sidecar

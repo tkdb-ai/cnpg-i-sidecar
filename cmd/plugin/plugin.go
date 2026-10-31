@@ -26,9 +26,9 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 
-	"github.com/tkdb-ai/cnpg-i-supercronic-sidecar/internal/identity"
-	lifecycleImpl "github.com/tkdb-ai/cnpg-i-supercronic-sidecar/internal/lifecycle"
-	operatorImpl "github.com/tkdb-ai/cnpg-i-supercronic-sidecar/internal/operator"
+	"github.com/tkdb-ai/cnpg-i-sidecar/internal/identity"
+	lifecycleImpl "github.com/tkdb-ai/cnpg-i-sidecar/internal/lifecycle"
+	operatorImpl "github.com/tkdb-ai/cnpg-i-sidecar/internal/operator"
 )
 
 // NewCmd creates the `plugin` command

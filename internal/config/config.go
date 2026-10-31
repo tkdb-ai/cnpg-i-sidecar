@@ -27,42 +27,42 @@ import (
 
 const (
 	imageParameter         = "image"
+	containerNameParameter = "containerName"
 	configMapNameParameter = "configMapName"
 	mountPathParameter     = "mountPath"
-	crontabPathParameter   = "crontabPath"
 	exportPathParameter    = "exportPath"
 
-	defaultMountPath   = "/etc/supercronic"
-	defaultCrontabPath = "/etc/supercronic/crontab"
-	defaultExportPath  = "/var/log/postgres-export"
+	defaultContainerName = "sidecar"
+	defaultMountPath     = "/etc/sidecar"
+	defaultExportPath    = "/var/lib/sidecar-export"
 )
 
 // Configuration represents the plugin configuration parameters
 type Configuration struct {
-	// Image is the container image used for the injected sidecar. It must
-	// contain the supercronic binary on $PATH - see sidecar-image/Dockerfile
-	// in this repository for a buildable image. Required: there is no
-	// public image to default to.
+	// Image is the container image used for the injected sidecar. Required:
+	// there is no sensible default, and no command/args are set on the
+	// container - it runs exactly as its own image's ENTRYPOINT/CMD define,
+	// so the plugin stays agnostic to what the sidecar actually does.
 	Image string
 
-	// ConfigMapName is the name of a ConfigMap, in the same namespace as the
-	// Cluster, holding the crontab file and any scripts it invokes.
-	// Required: there is no sensible default.
+	// ContainerName is the name given to the injected sidecar container.
+	ContainerName string
+
+	// ConfigMapName, if set, names a ConfigMap (in the same namespace as the
+	// Cluster) mounted into the sidecar at MountPath - e.g. for config
+	// files or scripts the sidecar's own entrypoint reads. Optional: not
+	// every sidecar needs mounted config.
 	ConfigMapName string
 
-	// MountPath is where the ConfigMap is mounted inside the sidecar.
+	// MountPath is where ConfigMapName is mounted inside the sidecar, if set.
 	MountPath string
 
-	// CrontabPath is the path (inside MountPath) to the crontab file
-	// passed to supercronic.
-	CrontabPath string
-
-	// ExportPath is a writable directory mounted into the sidecar (an
-	// emptyDir, not shared with the postgres container) for scripts that
-	// need to stage files - e.g. pulling the instance's logs via the
-	// Kubernetes API (GET /api/v1/.../pods/<name>/log) and writing them out
-	// as a real, truncatable file for a downstream log shipper, since the
-	// pipes CNPG itself logs to cannot be read a second time or truncated.
+	// ExportPath is a writable directory mounted into the sidecar (a plain
+	// emptyDir, not shared with the postgres container) for the sidecar to
+	// stage files in - e.g. pulling the instance's logs via the Kubernetes
+	// API (GET /api/v1/.../pods/<name>/log) and writing them out as a real,
+	// truncatable file for a downstream shipper, since the pipes CNPG
+	// itself logs to cannot be read a second time or truncated.
 	ExportPath string
 }
 
@@ -74,29 +74,18 @@ func FromParameters(
 
 	configuration := &Configuration{
 		Image:         helper.Parameters[imageParameter],
+		ContainerName: helper.Parameters[containerNameParameter],
 		ConfigMapName: helper.Parameters[configMapNameParameter],
 		MountPath:     helper.Parameters[mountPathParameter],
-		CrontabPath:   helper.Parameters[crontabPathParameter],
 		ExportPath:    helper.Parameters[exportPathParameter],
-	}
-
-	if configuration.ConfigMapName == "" {
-		validationErrors = append(
-			validationErrors,
-			validation.BuildErrorForParameter(
-				helper, configMapNameParameter, "configMapName is required: it must name a "+
-					"ConfigMap, in the same namespace as the Cluster, containing the crontab file "+
-					"and any scripts it invokes",
-			),
-		)
 	}
 
 	if configuration.Image == "" {
 		validationErrors = append(
 			validationErrors,
 			validation.BuildErrorForParameter(
-				helper, imageParameter, "image is required: it must be a container image "+
-					"containing the supercronic binary on $PATH (see sidecar-image/Dockerfile)",
+				helper, imageParameter, "image is required: the container image to inject as a "+
+					"sidecar, run as-is with no command/args override",
 			),
 		)
 	}
@@ -122,20 +111,20 @@ func ValidateChanges(
 func (config *Configuration) ToParameters() (map[string]string, error) {
 	return map[string]string{
 		imageParameter:         config.Image,
+		containerNameParameter: config.ContainerName,
 		configMapNameParameter: config.ConfigMapName,
 		mountPathParameter:     config.MountPath,
-		crontabPathParameter:   config.CrontabPath,
 		exportPathParameter:    config.ExportPath,
 	}, nil
 }
 
 // applyDefaults fills the configuration with the defaults
 func (config *Configuration) applyDefaults() {
+	if config.ContainerName == "" {
+		config.ContainerName = defaultContainerName
+	}
 	if config.MountPath == "" {
 		config.MountPath = defaultMountPath
-	}
-	if config.CrontabPath == "" {
-		config.CrontabPath = defaultCrontabPath
 	}
 	if config.ExportPath == "" {
 		config.ExportPath = defaultExportPath

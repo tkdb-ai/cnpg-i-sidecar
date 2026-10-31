@@ -136,7 +136,7 @@ tasks:
     cmds:
       - >
         dagger -s call -m github.com/sagikazarmark/daggerverse/kustomize@${DAGGER_KUSTOMIZE_SHA}
-        edit --source kubernetes set image --image cnpg-i-supercronic-sidecar={{.IMAGE_NAME}}:{{.IMAGE_VERSION}}
+        edit --source kubernetes set image --image cnpg-i-sidecar={{.IMAGE_NAME}}:{{.IMAGE_VERSION}}
         directory export --path kubernetes
       - >
         dagger -s call -m github.com/sagikazarmark/daggerverse/kustomize@${DAGGER_KUSTOMIZE_SHA}
@@ -177,7 +177,7 @@ tasks:
     env:
       CGO_ENABLED: 0
     cmds:
-      - go build -o bin/cnpg-i-supercronic-sidecar main.go
+      - go build -o bin/cnpg-i-sidecar main.go
     sources:
       - ./**/*.go
 
@@ -186,7 +186,7 @@ tasks:
     desc: Build a container image for the plugin locally
     vars:
       IMAGE_VERSION: '{{.IMAGE_VERSION | default "latest"}}'
-      IMAGE_NAME: cnpg-i-supercronic-sidecar:{{.IMAGE_VERSION}}
+      IMAGE_NAME: cnpg-i-sidecar:{{.IMAGE_VERSION}}
     cmds:
       - docker build -t {{.IMAGE_NAME}} .
     sources:

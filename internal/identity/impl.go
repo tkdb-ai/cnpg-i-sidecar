@@ -24,7 +24,7 @@ import (
 
 	"github.com/cloudnative-pg/cnpg-i/pkg/identity"
 
-	"github.com/tkdb-ai/cnpg-i-supercronic-sidecar/pkg/metadata"
+	"github.com/tkdb-ai/cnpg-i-sidecar/pkg/metadata"
 )
 
 // Implementation is the implementation of the identity service

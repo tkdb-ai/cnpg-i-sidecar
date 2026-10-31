@@ -2,24 +2,24 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: supercronic-sidecar
-  name: supercronic-sidecar
+    app: sidecar
+  name: sidecar
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: supercronic-sidecar
+      app: sidecar
   strategy: {}
   template:
     metadata:
       creationTimestamp: null
       labels:
-        app: supercronic-sidecar
+        app: sidecar
     spec:
       containers:
-      - image: cnpg-i-supercronic-sidecar:latest
+      - image: cnpg-i-sidecar:latest
         imagePullPolicy: IfNotPresent
-        name: cnpg-i-supercronic-sidecar
+        name: cnpg-i-sidecar
         ports:
         - containerPort: 9090
           protocol: TCP
@@ -38,7 +38,7 @@ spec:
       volumes:
       - name: server
         secret:
-          secretName: supercronic-sidecar-server-tls
+          secretName: sidecar-server-tls
       - name: client
         secret:
-          secretName: supercronic-sidecar-client-tls
+          secretName: sidecar-client-tls

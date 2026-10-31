@@ -5,7 +5,7 @@ metadata:
 data:
   crontab: |
     # minute hour day month weekday command
-    */15 * * * * /etc/supercronic/example-vacuum-analyze.sh
+    */15 * * * * /etc/sidecar/example-vacuum-analyze.sh
   example-vacuum-analyze.sh: |
     #!/bin/sh
     set -eu

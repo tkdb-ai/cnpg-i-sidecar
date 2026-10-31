@@ -50,7 +50,7 @@ formatters:
       sections:
         - standard
         - default
-        - prefix(github.com/tkdb-ai/cnpg-i-supercronic-sidecar)
+        - prefix(github.com/tkdb-ai/cnpg-i-sidecar)
         - blank
         - dot
   exclusions:

@@ -27,8 +27,8 @@ import (
 	"github.com/cloudnative-pg/cnpg-i-machinery/pkg/pluginhelper/object"
 	"github.com/cloudnative-pg/cnpg-i/pkg/operator"
 
-	"github.com/tkdb-ai/cnpg-i-supercronic-sidecar/internal/config"
-	"github.com/tkdb-ai/cnpg-i-supercronic-sidecar/pkg/metadata"
+	"github.com/tkdb-ai/cnpg-i-sidecar/internal/config"
+	"github.com/tkdb-ai/cnpg-i-sidecar/pkg/metadata"
 )
 
 // MutateCluster is called to mutate a cluster with the defaulting webhook.

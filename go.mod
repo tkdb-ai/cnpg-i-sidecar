@@ -1,4 +1,4 @@
-module github.com/tkdb-ai/cnpg-i-supercronic-sidecar
+module github.com/tkdb-ai/cnpg-i-sidecar
 
 go 1.26.4
 

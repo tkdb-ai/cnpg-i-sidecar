@@ -1,7 +1,7 @@
 # Plugin Development
 
 This section of the documentation illustrates the CNPG-I capabilities used by
-the supercronic-sidecar plugin, how the plugin implementation uses them, and how
+the sidecar plugin, how the plugin implementation uses them, and how
 developers can build and deploy the plugin.
 
 ## Concepts
@@ -58,7 +58,7 @@ This interface allows plugins to implement important features like:
 
 [API reference](https://github.com/cloudnative-pg/cnpg-i/blob/main/proto/operator.proto)
 
-The supercronic-sidecar plugin is using this to validate used-defined parameters, and to
+The sidecar plugin is using this to validate used-defined parameters, and to
 set default values for the labels and annotations applied by the plugin if not
 specified by the user.
 
@@ -79,7 +79,7 @@ Some examples of what it can be achieved through the lifecycle:
 
 [API reference](https://github.com/cloudnative-pg/cnpg-i/blob/main/proto/operator_lifecycle.proto):
 
-The supercronic-sidecar plugin is using this to add labels, annotations and a sidecar
+The sidecar plugin is using this to add labels, annotations and a sidecar
 to the pods.
 
 ## Implementation
@@ -170,7 +170,7 @@ a [CNPG development environment](https://github.com/cloudnative-pg/cloudnative-p
 By executing `task local-kind-deploy`, a container image containing the
 executable of the repository will be built and loaded inside the kind cluster.
 
-Having done that, the supercronic-sidecar plugin deployment will be applied.
+Having done that, the sidecar plugin deployment will be applied.
 
 ### CI/CD build
 

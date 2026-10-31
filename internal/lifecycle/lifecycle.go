@@ -31,15 +31,14 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/tkdb-ai/cnpg-i-supercronic-sidecar/internal/config"
-	"github.com/tkdb-ai/cnpg-i-supercronic-sidecar/internal/utils"
-	"github.com/tkdb-ai/cnpg-i-supercronic-sidecar/pkg/metadata"
+	"github.com/tkdb-ai/cnpg-i-sidecar/internal/config"
+	"github.com/tkdb-ai/cnpg-i-sidecar/internal/utils"
+	"github.com/tkdb-ai/cnpg-i-sidecar/pkg/metadata"
 )
 
 const (
-	sidecarContainerName = "supercronic"
-	scriptsVolumeName    = "supercronic-scripts"
-	exportVolumeName     = "supercronic-export"
+	configVolumeName = "sidecar-config"
+	exportVolumeName = "sidecar-export"
 )
 
 // Implementation is the implementation of the lifecycle handler
@@ -98,10 +97,11 @@ func (impl Implementation) LifecycleHook(
 }
 
 // reconcilePod is called when creating (or reconciling) an instance Pod.
-// It injects a long-running "native sidecar" container running supercronic,
-// wired up with the same Postgres connection details the main instance
-// uses, plus full access to the volumes (PGDATA, the local unix socket)
-// used by the postgres container itself.
+// It injects a long-running "native sidecar" container - running exactly
+// whatever its own image's ENTRYPOINT/CMD define, the plugin sets no
+// command/args - wired up with the same Postgres connection details the
+// main instance uses, plus full access to the volumes (PGDATA, the local
+// unix socket) used by the postgres container itself.
 func (impl Implementation) reconcilePod(
 	ctx context.Context,
 	request *lifecycle.OperatorLifecycleRequest,
@@ -111,7 +111,7 @@ func (impl Implementation) reconcilePod(
 		return nil, err
 	}
 
-	logger := log.FromContext(ctx).WithName("supercronic_sidecar")
+	logger := log.FromContext(ctx).WithName("sidecar")
 	helper := common.NewPlugin(
 		*cluster,
 		metadata.PluginName,
@@ -130,22 +130,24 @@ func (impl Implementation) reconcilePod(
 	mutatedPod := pod.DeepCopy()
 
 	sidecar := &corev1.Container{
-		Name:            sidecarContainerName,
+		Name:            configuration.ContainerName,
 		Image:           configuration.Image,
 		ImagePullPolicy: corev1.PullIfNotPresent,
-		Command:         []string{"supercronic", configuration.CrontabPath},
 		Env:             connectionEnv(cluster, configuration.ExportPath),
 		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      scriptsVolumeName,
-				MountPath: configuration.MountPath,
-				ReadOnly:  true,
-			},
 			{
 				Name:      exportVolumeName,
 				MountPath: configuration.ExportPath,
 			},
 		},
+	}
+
+	if configuration.ConfigMapName != "" {
+		sidecar.VolumeMounts = append(sidecar.VolumeMounts, corev1.VolumeMount{
+			Name:      configVolumeName,
+			MountPath: configuration.MountPath,
+			ReadOnly:  true,
+		})
 	}
 
 	// injectPostgresVolumeMounts=true also appends the pgdata and
@@ -157,7 +159,9 @@ func (impl Implementation) reconcilePod(
 		return nil, err
 	}
 
-	ensureScriptsVolume(&mutatedPod.Spec, configuration.ConfigMapName)
+	if configuration.ConfigMapName != "" {
+		ensureConfigVolume(&mutatedPod.Spec, configuration.ConfigMapName)
+	}
 	ensureExportVolume(&mutatedPod.Spec)
 
 	patch, err := object.CreatePatch(mutatedPod, pod)
@@ -228,23 +232,24 @@ func connectionEnv(cluster *apiv1.Cluster, exportPath string) []corev1.EnvVar {
 	return env
 }
 
-// ensureScriptsVolume adds the ConfigMap-backed volume holding the crontab
-// and scripts to the Pod spec, if it isn't already present (e.g. from a
-// previous reconciliation of the same Pod object).
-func ensureScriptsVolume(spec *corev1.PodSpec, configMapName string) {
+// ensureConfigVolume adds the ConfigMap-backed volume to the Pod spec, if
+// it isn't already present (e.g. from a previous reconciliation of the
+// same Pod object).
+func ensureConfigVolume(spec *corev1.PodSpec, configMapName string) {
 	for _, v := range spec.Volumes {
-		if v.Name == scriptsVolumeName {
+		if v.Name == configVolumeName {
 			return
 		}
 	}
 
-	// ConfigMap-mounted files default to 0644, which isn't executable. The
-	// crontab calls scripts directly (e.g. "/etc/supercronic/foo.sh"), so
-	// the mount needs an executable default mode.
+	// ConfigMap-mounted files default to 0644, which isn't executable.
+	// Sidecars commonly invoke mounted scripts directly, so default the
+	// mount to executable; readers that don't care about the exec bit are
+	// unaffected.
 	executableMode := int32(0o555)
 
 	spec.Volumes = append(spec.Volumes, corev1.Volume{
-		Name: scriptsVolumeName,
+		Name: configVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{Name: configMapName},
@@ -255,9 +260,7 @@ func ensureScriptsVolume(spec *corev1.PodSpec, configMapName string) {
 }
 
 // ensureExportVolume adds a plain writable emptyDir volume to the Pod spec
-// for scripts to stage files in (e.g. a pulled copy of the Postgres log,
-// ready for a downstream shipper to pick up and truncate), if it isn't
-// already present.
+// for the sidecar to stage files in, if it isn't already present.
 func ensureExportVolume(spec *corev1.PodSpec) {
 	for _, v := range spec.Volumes {
 		if v.Name == exportVolumeName {

@@ -27,7 +27,7 @@ import (
 	"github.com/cloudnative-pg/machinery/pkg/log"
 	"github.com/spf13/cobra"
 
-	"github.com/tkdb-ai/cnpg-i-supercronic-sidecar/cmd/plugin"
+	"github.com/tkdb-ai/cnpg-i-sidecar/cmd/plugin"
 )
 
 func main() {
@@ -35,8 +35,8 @@ func main() {
 
 	logFlags := &log.Flags{}
 	rootCmd := &cobra.Command{
-		Use:   "cnpg-i-supercronic-sidecar",
-		Short: "Injects a supercronic sidecar into CloudNativePG/EDB Postgres for Kubernetes instance pods",
+		Use:   "cnpg-i-sidecar",
+		Short: "Injects a configurable sidecar container into CloudNativePG/EDB Postgres for Kubernetes instance pods",
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			logFlags.ConfigureLogging()
 			cmd.SetContext(log.IntoContext(cmd.Context(), log.GetLogger()))

@@ -9,12 +9,15 @@ spec:
   instances: 3
 
   plugins:
-  - name: supercronic-sidecar.tkdb.ai
+  - name: sidecar.tkdb.ai
     parameters:
-      # Built from sidecar-image/Dockerfile in this repository, pushed to
-      # your own registry.
+      # Built from examples/supercronic-sidecar-image/Dockerfile in this
+      # repository, pushed to your own registry. Any image works here -
+      # the plugin doesn't inspect or require anything supercronic-specific.
       image: <your-registry>/supercronic-sidecar:latest
       configMapName: cluster-example-supercronic-scripts
+      # containerName, mountPath, exportPath all have sensible defaults -
+      # see the README's parameter table.
 
   enableSuperuserAccess: true
   superuserSecret:

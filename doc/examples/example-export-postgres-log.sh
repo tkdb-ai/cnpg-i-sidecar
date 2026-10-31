@@ -7,13 +7,13 @@
 # README's "Why not just read CNPG's log pipes directly" section.
 #
 # Needs: this chart's logExport.enabled=true (RBAC for GET pods/log), and
-# a container with curl - add it to sidecar-image/Dockerfile if missing.
+# a container with curl - add it to examples/supercronic-sidecar-image/Dockerfile if missing.
 set -eu
 
 TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
 CACERT=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
 API="https://kubernetes.default.svc"
-STAGED="${EXPORT_PATH:-/var/log/postgres-export}/postgres.log"
+STAGED="${EXPORT_PATH:-/var/lib/sidecar-export}/postgres.log"
 
 # Pull everything logged since the last successful pull (sinceTime would
 # need to be tracked between runs for a real incremental pull; this

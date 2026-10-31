@@ -23,16 +23,16 @@ package metadata
 import "github.com/cloudnative-pg/cnpg-i/pkg/identity"
 
 // PluginName is the name of the plugin
-const PluginName = "supercronic-sidecar.tkdb.ai"
+const PluginName = "sidecar.tkdb.ai"
 
 // Data is the metadata of this plugin
 var Data = identity.GetPluginMetadataResponse{
 	Name:          PluginName,
 	Version:       "0.0.1",
-	DisplayName:   "Supercronic sidecar injector",
-	ProjectUrl:    "https://github.com/tkdb-ai/cnpg-i-supercronic-sidecar",
-	RepositoryUrl: "https://github.com/tkdb-ai/cnpg-i-supercronic-sidecar",
+	DisplayName:   "Sidecar injector",
+	ProjectUrl:    "https://github.com/tkdb-ai/cnpg-i-sidecar",
+	RepositoryUrl: "https://github.com/tkdb-ai/cnpg-i-sidecar",
 	License:       "Proprietary",
-	LicenseUrl:    "https://github.com/tkdb-ai/cnpg-i-supercronic-sidecar/LICENSE",
+	LicenseUrl:    "https://github.com/tkdb-ai/cnpg-i-sidecar/LICENSE",
 	Maturity:      "alpha",
 }

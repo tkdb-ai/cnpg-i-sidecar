@@ -31,7 +31,7 @@ fi
 # WARNING: This will fail with recent releases of kind due to https://github.com/kubernetes-sigs/kind/issues/3853
 # See fix in CNPG https://github.com/cloudnative-pg/cloudnative-pg/pull/6770
 # current_context=$(kubectl config view --raw -o json | jq -r '."current-context"' | sed "s/kind-//")
-# kind load docker-image --name=${current_context} cnpg-i-supercronic-sidecar:${VERSION:-latest}
+# kind load docker-image --name=${current_context} cnpg-i-sidecar:${VERSION:-latest}
 
 # Constants
 registry_name=registry.dev
@@ -50,8 +50,8 @@ load_image_registry() {
 kubectl apply -k kubernetes/
 
 # We load the image into the registry (which is a prerequisite)
-load_image_registry cnpg-i-supercronic-sidecar:${VERSION:-latest}
+load_image_registry cnpg-i-sidecar:${VERSION:-latest}
 
 # Patch the deployment to use the provided image
-kubectl patch deployments.apps -n cnpg-system supercronic-sidecar -p \
-  "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"cnpg-i-supercronic-sidecar\",\"image\":\"${registry_name}:5000/cnpg-i-supercronic-sidecar:${VERSION:-latest}\"}]}}}}"
+kubectl patch deployments.apps -n cnpg-system sidecar -p \
+  "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"cnpg-i-sidecar\",\"image\":\"${registry_name}:5000/cnpg-i-sidecar:${VERSION:-latest}\"}]}}}}"

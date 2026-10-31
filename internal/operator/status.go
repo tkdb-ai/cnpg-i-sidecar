@@ -31,7 +31,7 @@ import (
 	"github.com/cloudnative-pg/cnpg-i/pkg/operator"
 	"github.com/cloudnative-pg/machinery/pkg/log"
 
-	"github.com/tkdb-ai/cnpg-i-supercronic-sidecar/pkg/metadata"
+	"github.com/tkdb-ai/cnpg-i-sidecar/pkg/metadata"
 )
 
 type Status struct {
