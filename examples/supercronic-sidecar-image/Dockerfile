@@ -39,6 +39,13 @@ RUN apk add --no-cache curl \
 # scripts call the Kubernetes API - see ../example-export-postgres-log.sh.
 RUN apk add --no-cache postgresql16-client
 
+# Runs once at container start, before handing off to supercronic - see
+# entrypoint.sh for what it does and why it lives here rather than being
+# a plugin feature. Copied/made executable while still root, since the
+# USER switch below leaves us without permission to chmod root-owned files.
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 # Runs as the same uid/gid as the postgres container (26:26) so it can
 # read PGDATA directly when the plugin mounts it; socket-only access would
 # work as any uid since the socket file itself is world-writable.
@@ -47,5 +54,5 @@ USER 26:26
 # The plugin sets no command/args - this image's own default is what runs.
 # configMapName/mountPath below put the crontab at /etc/sidecar/crontab;
 # adjust if you change either parameter from their defaults.
-ENTRYPOINT ["supercronic"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["/etc/sidecar/crontab"]
