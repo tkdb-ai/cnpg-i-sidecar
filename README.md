@@ -47,6 +47,7 @@ On every Pod create/reconcile, the plugin's `LifecycleHook`:
    necessary because CNPG's own log output lives in named pipes (see
    "Why not just read CNPG's log pipes" below) - it can't be read a second
    time or truncated directly.
+6. Adds any `env.<NAME>` parameter as a plain-value env var on the sidecar.
 
 See [`internal/lifecycle/lifecycle.go`](internal/lifecycle/lifecycle.go) for
 the implementation, and [`doc/examples/`](doc/examples/) for a full worked
@@ -86,6 +87,11 @@ grants the RBAC (`get` on `pods/log`) a script needs to do that.
 | `configMapName` | no | - | ConfigMap (same namespace as the Cluster) mounted at `mountPath`, if set. |
 | `mountPath` | no | `/etc/sidecar` | Where `configMapName` is mounted, if set. |
 | `exportPath` | no | `/var/lib/sidecar-export` | Writable `emptyDir` mount for the sidecar to stage files in. |
+| `env.<NAME>` | no | - | Any parameter matching this pattern adds a plain-value env var `<NAME>` to the sidecar. E.g. `env.LOG_LEVEL: debug` sets `LOG_LEVEL=debug`. Avoid the reserved names below. |
+
+Reserved env var names the plugin itself always sets - don't collide with
+these via `env.<NAME>`: `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`,
+`POD_NAME`, `POD_NAMESPACE`, `EXPORT_PATH`.
 
 ## Deploying
 
