@@ -22,6 +22,7 @@ package lifecycle
 import (
 	"context"
 	"errors"
+	"sort"
 
 	apiv1 "github.com/cloudnative-pg/api/pkg/api/v1"
 	"github.com/cloudnative-pg/cnpg-i-machinery/pkg/pluginhelper/common"
@@ -133,7 +134,7 @@ func (impl Implementation) reconcilePod(
 		Name:            configuration.ContainerName,
 		Image:           configuration.Image,
 		ImagePullPolicy: corev1.PullIfNotPresent,
-		Env:             connectionEnv(cluster, configuration.ExportPath),
+		Env:             append(connectionEnv(cluster, configuration.ExportPath), extraEnv(configuration.ExtraEnv)...),
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      exportVolumeName,
@@ -229,6 +230,24 @@ func connectionEnv(cluster *apiv1.Cluster, exportPath string) []corev1.EnvVar {
 		})
 	}
 
+	return env
+}
+
+// extraEnv turns the ExtraEnv map (from "env.FOO" parameters) into a
+// sorted-by-name slice of plain-value EnvVars, so the generated patch is
+// stable across reconciliations instead of varying with Go's random map
+// iteration order.
+func extraEnv(values map[string]string) []corev1.EnvVar {
+	names := make([]string, 0, len(values))
+	for name := range values {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	env := make([]corev1.EnvVar, 0, len(names))
+	for _, name := range names {
+		env = append(env, corev1.EnvVar{Name: name, Value: values[name]})
+	}
 	return env
 }
 

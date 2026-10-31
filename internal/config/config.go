@@ -20,6 +20,8 @@ SPDX-License-Identifier: Apache-2.0
 package config
 
 import (
+	"strings"
+
 	"github.com/cloudnative-pg/cnpg-i-machinery/pkg/pluginhelper/common"
 	"github.com/cloudnative-pg/cnpg-i-machinery/pkg/pluginhelper/validation"
 	"github.com/cloudnative-pg/cnpg-i/pkg/operator"
@@ -31,6 +33,13 @@ const (
 	configMapNameParameter = "configMapName"
 	mountPathParameter     = "mountPath"
 	exportPathParameter    = "exportPath"
+
+	// envParameterPrefix: any parameter named "env.FOO" becomes an env var
+	// FOO on the injected sidecar. Parameters are a flat map[string]string
+	// (the CNPG-I protocol doesn't support nested/list parameter types),
+	// so this prefix convention is how arbitrary extra env vars get in
+	// without a new parameter per variable.
+	envParameterPrefix = "env."
 
 	defaultContainerName = "sidecar"
 	defaultMountPath     = "/etc/sidecar"
@@ -64,6 +73,12 @@ type Configuration struct {
 	// truncatable file for a downstream shipper, since the pipes CNPG
 	// itself logs to cannot be read a second time or truncated.
 	ExportPath string
+
+	// ExtraEnv holds plain-value env vars to add to the sidecar, taken
+	// from any "env.FOO" parameter. Avoid colliding with the reserved
+	// names the plugin itself sets: PGHOST, PGPORT, PGUSER, PGPASSWORD,
+	// POD_NAME, POD_NAMESPACE, EXPORT_PATH.
+	ExtraEnv map[string]string
 }
 
 // FromParameters builds a plugin configuration from the configuration parameters
@@ -78,6 +93,13 @@ func FromParameters(
 		ConfigMapName: helper.Parameters[configMapNameParameter],
 		MountPath:     helper.Parameters[mountPathParameter],
 		ExportPath:    helper.Parameters[exportPathParameter],
+		ExtraEnv:      make(map[string]string),
+	}
+
+	for key, value := range helper.Parameters {
+		if name, ok := strings.CutPrefix(key, envParameterPrefix); ok && name != "" {
+			configuration.ExtraEnv[name] = value
+		}
 	}
 
 	if configuration.Image == "" {
@@ -109,13 +131,23 @@ func ValidateChanges(
 
 // ToParameters serialize the configuration to a map of plugin parameters
 func (config *Configuration) ToParameters() (map[string]string, error) {
-	return map[string]string{
+	parameters := map[string]string{
 		imageParameter:         config.Image,
 		containerNameParameter: config.ContainerName,
 		configMapNameParameter: config.ConfigMapName,
 		mountPathParameter:     config.MountPath,
 		exportPathParameter:    config.ExportPath,
-	}, nil
+	}
+
+	// Round-trip env.* parameters: the defaulting webhook (MutateCluster)
+	// replaces the Cluster's stored parameters with whatever this
+	// returns, so anything left out here would get silently deleted from
+	// the Cluster on the next reconciliation.
+	for name, value := range config.ExtraEnv {
+		parameters[envParameterPrefix+name] = value
+	}
+
+	return parameters, nil
 }
 
 // applyDefaults fills the configuration with the defaults
