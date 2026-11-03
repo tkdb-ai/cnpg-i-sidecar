@@ -12,8 +12,10 @@ The plugin itself is deliberately generic: it doesn't know or care what's
 inside the sidecar image. It was first built to run
 [supercronic](https://github.com/aptible/supercronic) for cron-scheduled
 maintenance scripts (replicating sidecar functionality from Crunchy's
-PGO), but any image works - the plugin sets no command/args, just volumes,
-env vars, and mounts, and lets the image's own `ENTRYPOINT`/`CMD` run as-is.
+PGO), but any image works - by default the plugin sets no command/args,
+just volumes, env vars, and mounts, and lets the image's own
+`ENTRYPOINT`/`CMD` run as-is. The `command` parameter can override that
+entirely when you don't want to bake a command into the image.
 
 Forked from the [`cnpg-i-hello-world`](https://github.com/cloudnative-pg/cnpg-i-hello-world)
 reference plugin, which demonstrates the same lifecycle-hook mechanism with
@@ -27,8 +29,11 @@ On every Pod create/reconcile, the plugin's `LifecycleHook`:
 
 1. Injects a **native sidecar** (an init container with `restartPolicy:
    Always`, so it runs for the Pod's whole lifetime), named per the
-   `containerName` parameter, running the image from the `image` parameter
-   with no command/args override.
+   `containerName` parameter, running the image from the `image` parameter.
+   By default no command/args are set (the image's own `ENTRYPOINT`/`CMD`
+   runs as-is); if `command` is set, it instead runs
+   `/bin/sh -c '<command>'` - supports multi-step or looping commands like
+   `while true; do ...; done`.
 2. Grants it the **same volume mounts as the `postgres` container** -
    `pgdata` and the `scratch-data` volume holding the local unix socket at
    `/controller/run/.s.PGSQL.5432` - via `injectPostgresVolumeMounts: true`.
@@ -82,11 +87,12 @@ grants the RBAC (`get` on `pods/log`) a script needs to do that.
 
 | Parameter | Required | Default | Description |
 |---|---|---|---|
-| `image` | yes | - | Sidecar image. Runs as-is; the plugin sets no command/args. |
+| `image` | yes | - | Sidecar image. By default runs as-is (its own `ENTRYPOINT`/`CMD`); see `command` to override. |
 | `containerName` | no | `sidecar` | Name given to the injected container. |
 | `configMapName` | no | - | ConfigMap (same namespace as the Cluster) mounted at `mountPath`, if set. |
 | `mountPath` | no | `/etc/sidecar` | Where `configMapName` is mounted, if set. |
 | `exportPath` | no | `/var/lib/sidecar-export` | Writable `emptyDir` mount for the sidecar to stage files in. |
+| `command` | no | - | If set, overrides the sidecar's entrypoint: run as `/bin/sh -c '<command>'`. Supports multi-step/looping shell, e.g. `while true; do /etc/sidecar/run.sh; sleep 60; done`. Leave unset to run the image's own `ENTRYPOINT`/`CMD`. |
 | `env.<NAME>` | no | - | Any parameter matching this pattern adds a plain-value env var `<NAME>` to the sidecar. E.g. `env.LOG_LEVEL: debug` sets `LOG_LEVEL=debug`. Avoid the reserved names below. |
 
 Reserved env var names the plugin itself always sets - don't collide with

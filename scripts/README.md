@@ -1,12 +1,27 @@
 # scripts/
 
-Four scripts, from two different workflows. If you're doing local dev
-against minikube (how this plugin has actually been built and tested so
-far), use **`dev-rebuild.sh`** and **`dev-retest.sh`**. The other two
-(`build.sh`, `run.sh`) are leftover tooling from the original
-`cnpg-i-hello-world` scaffold, built around a `kind` cluster + local
-Docker registry + the `Taskfile.yml`/CI pipeline - they haven't been
-exercised in this fork and may need adjusting for your setup.
+Six scripts, for three different purposes:
+
+- **Local dev against minikube** (how this plugin has actually been built
+  and tested so far): **`dev-rebuild.sh`** + **`dev-retest.sh`**.
+- **Real staging/prod deploys** (a real registry + real cluster context,
+  not minikube): **`release-build.sh`** + **`release-deploy.sh`**.
+- **Scaffold leftovers** you should never need to run by hand:
+  `build.sh`, `run.sh`.
+
+- **`build.sh`** - not unused: it's called *inside* the `Dockerfile`
+  (`RUN ./scripts/build.sh` in the builder stage) to compile the binary
+  that gets copied into the final image. `docker build .` (what
+  `dev-rebuild.sh` runs) already invokes it for you - it's an implementation
+  detail of the Dockerfile, not a script you run directly.
+- **`run.sh`** - genuinely not used by the minikube dev loop. It's leftover
+  from the original `cnpg-i-hello-world` scaffold: builds the image, pushes
+  it to a local `kind` registry (`registry.dev:5000`), then patches the
+  controller `Deployment` to use it. Assumes a `kind` cluster, not minikube
+  - not exercised in this fork. Its namespace/deployment name have been
+  kept in sync with the rest of the repo (`edb-operator`/`sidecar`) in case
+  someone adapts it for a `kind`-based loop later, but the registry-push
+  step won't work against minikube as-is.
 
 ## The minikube dev loop: `dev-rebuild.sh` + `dev-retest.sh`
 
@@ -78,11 +93,77 @@ Env var overrides: `CHARTS_REPO` (defaults to the sibling
 `NAMESPACE`, `PLUGIN_NAME`, `SIDECAR_IMAGE`, `CONTAINER_NAME`,
 `CONFIGMAP_NAME`, `PULL_SECRET`.
 
-## The original scaffold tooling: `build.sh` + `run.sh`
+## Real deploys: `release-build.sh` + `release-deploy.sh`
 
-Carried over from `cnpg-i-hello-world`, driven by `Taskfile.yml`
-(`task local-dev-build`, `task local-dev-image`, `task local-kind-deploy`,
-etc. - see the root `Taskfile.yml`). Assumes a `kind` cluster and a local
-Docker registry (`registry.dev:5000`), not minikube. Not used or verified
-in this fork - if you want a `kind`-based loop instead of minikube, start
-here, but expect to adjust the registry/cluster-name assumptions.
+The staging/prod counterpart to `dev-rebuild.sh`/`dev-retest.sh` - same
+two-step shape (build+push, then deploy+verify), but against a real
+registry and a real cluster context instead of minikube's local daemon.
+
+Deliberately **not** split into separate `test-*`/`prod-*` scripts: the
+only difference between deploying to staging and deploying to prod is
+which `REGISTRY`/`VERSION`/`KUBE_CONTEXT` you pass - duplicating the
+script per environment would just be two copies to keep in sync. If you
+want named one-liners per environment, wrap these in your own thin
+`test-deploy.sh`/`prod-deploy.sh` that export the right values and call
+through - ask and I'll write those once the actual registry URL and
+context names are nailed down.
+
+### `release-build.sh`
+
+```bash
+REGISTRY=<your-registry> scripts/release-build.sh
+```
+
+`go build`/`go vet`, then `docker build` + `docker push` using the host's
+normal Docker daemon (not minikube's) - tagged
+`<REGISTRY>/cnpg-i-sidecar:<VERSION>`, where `VERSION` defaults to the
+current short git SHA (override for a semver tag, e.g. `VERSION=v0.2.0`).
+Avoid `:latest` here - unlike the minikube loop, there's no
+rebuild-in-place guarantee on a real cluster, so a reproducible tag is
+what makes rollbacks and "what's actually deployed" answerable. Prints the
+full image reference on its last line.
+
+**Required:** `REGISTRY` (no default - this pushes to a real registry).
+
+### `release-deploy.sh`
+
+```bash
+REGISTRY=<your-registry> VERSION=<tag from release-build.sh> \
+  KUBE_CONTEXT=<context name> scripts/release-deploy.sh
+```
+
+`kubectl apply -k kubernetes/` against the given context, then
+`kubectl set image` on the controller `Deployment` to the built image, then
+waits for rollout. Prompts for confirmation before touching the cluster
+(unlike the dev scripts, which only ever touch minikube). First-time setup
+on a brand new cluster still needs cert-manager installed first (repo
+README's "Deploying" step 2).
+
+**Required:** `REGISTRY`, `VERSION` (must match what `release-build.sh`
+pushed), `KUBE_CONTEXT` (run `kubectl config get-contexts` to see what's
+available - deliberately not defaulted to "whatever your current context
+is," since a typo there would deploy to the wrong cluster).
+
+**Optional:** `NAMESPACE` (default `edb-operator`), `DEPLOYMENT` (default
+`sidecar`), `CONTAINER_NAME` (default `cnpg-i-sidecar`).
+
+This only deploys the **controller**. It does not build or push any
+sidecar image - in staging/prod, the sidecar is whatever real workload
+image your own pipeline owns (not the `examples/supercronic-sidecar-image`
+one, which is a worked example, not something to actually run beyond
+local testing).
+
+## `build.sh` and `run.sh`
+
+Both carried over from the `cnpg-i-hello-world` scaffold, driven by
+`Taskfile.yml` (`task local-dev-build`, `task local-dev-image`,
+`task local-kind-deploy`, etc. - see the root `Taskfile.yml`):
+
+- `build.sh` is a one-line `go build -o bin/cnpg-i-sidecar main.go`. It's
+  still live - the `Dockerfile`'s builder stage runs it - just not something
+  you invoke directly; `docker build .` does that for you.
+- `run.sh` is the `kind`-specific deploy flow described above: a local
+  Docker registry (`registry.dev:5000`) `kind` doesn't use with minikube.
+  Not exercised in this fork; if you ever want a `kind`-based loop instead
+  of minikube, start here, but expect to adjust the registry/image-tag
+  assumptions.

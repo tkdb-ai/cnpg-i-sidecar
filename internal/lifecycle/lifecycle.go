@@ -98,11 +98,11 @@ func (impl Implementation) LifecycleHook(
 }
 
 // reconcilePod is called when creating (or reconciling) an instance Pod.
-// It injects a long-running "native sidecar" container - running exactly
-// whatever its own image's ENTRYPOINT/CMD define, the plugin sets no
-// command/args - wired up with the same Postgres connection details the
-// main instance uses, plus full access to the volumes (PGDATA, the local
-// unix socket) used by the postgres container itself.
+// It injects a long-running "native sidecar" container - by default running
+// whatever its own image's ENTRYPOINT/CMD define, unless the Command
+// parameter overrides it - wired up with the same Postgres connection
+// details the main instance uses, plus full access to the volumes (PGDATA,
+// the local unix socket) used by the postgres container itself.
 func (impl Implementation) reconcilePod(
 	ctx context.Context,
 	request *lifecycle.OperatorLifecycleRequest,
@@ -141,6 +141,10 @@ func (impl Implementation) reconcilePod(
 				MountPath: configuration.ExportPath,
 			},
 		},
+	}
+
+	if configuration.Command != "" {
+		sidecar.Command = []string{"/bin/sh", "-c", configuration.Command}
 	}
 
 	if configuration.ConfigMapName != "" {

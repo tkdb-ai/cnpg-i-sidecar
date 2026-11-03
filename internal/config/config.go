@@ -34,6 +34,12 @@ const (
 	mountPathParameter     = "mountPath"
 	exportPathParameter    = "exportPath"
 
+	// commandParameter, if set, overrides the sidecar's entrypoint. It is
+	// run as a single shell command via "/bin/sh -c <value>", so multi-step
+	// or looping commands (e.g. "while true; do ...; done") work without
+	// needing a separate args list.
+	commandParameter = "command"
+
 	// envParameterPrefix: any parameter named "env.FOO" becomes an env var
 	// FOO on the injected sidecar. Parameters are a flat map[string]string
 	// (the CNPG-I protocol doesn't support nested/list parameter types),
@@ -49,9 +55,9 @@ const (
 // Configuration represents the plugin configuration parameters
 type Configuration struct {
 	// Image is the container image used for the injected sidecar. Required:
-	// there is no sensible default, and no command/args are set on the
-	// container - it runs exactly as its own image's ENTRYPOINT/CMD define,
-	// so the plugin stays agnostic to what the sidecar actually does.
+	// there is no sensible default. By default no command/args are set on
+	// the container - it runs its own image's ENTRYPOINT/CMD as-is - unless
+	// Command overrides it.
 	Image string
 
 	// ContainerName is the name given to the injected sidecar container.
@@ -74,6 +80,11 @@ type Configuration struct {
 	// itself logs to cannot be read a second time or truncated.
 	ExportPath string
 
+	// Command, if set, overrides the sidecar's entrypoint entirely - run as
+	// "/bin/sh -c <Command>". Leave empty to run the image's own
+	// ENTRYPOINT/CMD unmodified (the original, still-supported behavior).
+	Command string
+
 	// ExtraEnv holds plain-value env vars to add to the sidecar, taken
 	// from any "env.FOO" parameter. Avoid colliding with the reserved
 	// names the plugin itself sets: PGHOST, PGPORT, PGUSER, PGPASSWORD,
@@ -93,6 +104,7 @@ func FromParameters(
 		ConfigMapName: helper.Parameters[configMapNameParameter],
 		MountPath:     helper.Parameters[mountPathParameter],
 		ExportPath:    helper.Parameters[exportPathParameter],
+		Command:       helper.Parameters[commandParameter],
 		ExtraEnv:      make(map[string]string),
 	}
 
@@ -107,7 +119,7 @@ func FromParameters(
 			validationErrors,
 			validation.BuildErrorForParameter(
 				helper, imageParameter, "image is required: the container image to inject as a "+
-					"sidecar, run as-is with no command/args override",
+					"sidecar",
 			),
 		)
 	}
@@ -137,6 +149,7 @@ func (config *Configuration) ToParameters() (map[string]string, error) {
 		configMapNameParameter: config.ConfigMapName,
 		mountPathParameter:     config.MountPath,
 		exportPathParameter:    config.ExportPath,
+		commandParameter:       config.Command,
 	}
 
 	// Round-trip env.* parameters: the defaulting webhook (MutateCluster)

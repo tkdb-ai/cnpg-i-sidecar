@@ -46,12 +46,12 @@ load_image_registry() {
   docker push -q "${image_local_name}"
 }
 
-# Now we deploy the plugin inside the `cnpg-system` workspace
+# Now we deploy the plugin inside the `edb-operator` namespace
 kubectl apply -k kubernetes/
 
 # We load the image into the registry (which is a prerequisite)
 load_image_registry cnpg-i-sidecar:${VERSION:-latest}
 
 # Patch the deployment to use the provided image
-kubectl patch deployments.apps -n cnpg-system sidecar -p \
+kubectl patch deployments.apps -n edb-operator sidecar -p \
   "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"cnpg-i-sidecar\",\"image\":\"${registry_name}:5000/cnpg-i-sidecar:${VERSION:-latest}\"}]}}}}"
